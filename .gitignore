@@ -1,0 +1,38 @@
+# Ignore macOS system files
+.DS_Store
+
+# Ignore node_modules folder (if using Node.js)
+node_modules/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore environment files
+.env
+
+# Ignore build and dependency directories
+dist/
+build/
+*.log
+
+# Ignore IDE-specific files
+.vscode/
+.idea/
+
+# Ignore temporary files
+*.tmp
+*.swp
+*.bak
+
+# Ignore compiled files
+*.class
+*.o
+*.so
+
+# Ignore coverage reports
+coverage/
+.nyc_output/
+
+# Ignore custom files
+my_custom_file.txt
