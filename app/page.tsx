@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
+  const [county, setCounty] = useState('');
+  const router = useRouter();
 
   return (
     <div className="font-[family-name:var(--font-geist-sans)] relative">
@@ -35,7 +38,7 @@ export default function Home() {
           <div className="relative">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center font-medium justify-center px-4 py-2 text-sm text-white rounded-lg hover:bg-[#e63535]"
+              className="inline-flex items-center font-medium justify-center px-4 py-2 text-sm text-white rounded-lg hover:bg-white hover:text-[#BF1414] transition-colors duration-200"
             >
               <svg className="w-5 h-5 rounded-full me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3900 3900">
                 <path fill="#b22234" d="M0 0h7410v3900H0z" />
@@ -48,45 +51,73 @@ export default function Home() {
             {isOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white text-black border border-gray-100 rounded-lg shadow-md z-50">
                 <ul className="py-2 text-sm">
-                  <li><a href="#" className="flex items-center px-4 py-2 hover:bg-gray-100">🇺🇸 English (US)</a></li>
-                  <li><a href="#" className="flex items-center px-4 py-2 hover:bg-gray-100">🇲🇽 Español</a></li>
-                  <li><a href="#" className="flex items-center px-4 py-2 hover:bg-gray-100">🇮🇹 Italiano</a></li>
-                  <li><a href="#" className="flex items-center px-4 py-2 hover:bg-gray-100">🇨🇳 中文 (繁體)</a></li>
+                  <li><a href="#" className="flex items-center px-4 py-2 transition-colors duration-200 hover:bg-white hover:text-[#BF1414]">🇺🇸 English (US)</a></li>
+                  <li><a href="#" className="flex items-center px-4 py-2 transition-colors duration-200 hover:bg-white hover:text-[#BF1414]">🇲🇽 Español</a></li>
+                  <li><a href="#" className="flex items-center px-4 py-2 transition-colors duration-200 hover:bg-white hover:text-[#BF1414]">🇮🇹 Italiano</a></li>
+                  <li><a href="#" className="flex items-center px-4 py-2 transition-colors duration-200 hover:bg-white hover:text-[#BF1414]">🇨🇳 中文 (繁體)</a></li>
                 </ul>
               </div>
             )}
           </div>
         </div>
       </nav>
-        
-            
 
       {/* CONTENT */}
-      <div className="w-full min-h-screen bg-[#FFFFFF] flex items-center justify-center"></div>
-      <div className="relative w-full max-w-md">
-    <div className="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-      <svg
-        className="w-5 h-5 text-gray-500"
-        aria-hidden="true"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 20 20"
-      >
-        <path
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"
-        />
-      </svg>
-    </div>
-    <input
-      type="text"
-      placeholder="Search County..."
-      className="block w-full p-2 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500"
-    />
-  </div>
+      <div className="w-full min-h-screen bg-[#F2F2F2] flex flex-col items-center justify-center pt-[120px] px-4">
+        {/* Text above the box */}
+        <h1 className="text-3xl font-bold text-[#BF1414] mb-6">
+          Welcome to HotSpot
+        </h1>
+        <p className="text-gray-700 text-lg mb-10 text-center max-w-xl">
+          Enter your county below to find current fire zone information in your area.
+        </p>
+
+        {/* White box containing the search bar */}
+        <div className="bg-white p-6 rounded-lg shadow-md w-[800px] h-[500px] flex flex-col items-center justify-center">
+          <div className="relative w-full max-w-md">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <svg
+                className="w-5 h-5 text-gray-500"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"
+                />
+              </svg>
+            </div>
+            <input
+              type="text"
+              value={county}
+              onChange={(e) => setCounty(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && county.trim() !== '') {
+                  router.push(`/results?county=${encodeURIComponent(county.trim())}`);
+                }
+              }}
+              placeholder="Search County..."
+              className="block w-full p-2 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:border-[#BF1414] focus:ring-1 focus:ring-[#BF1414] transition-all duration-300 ease-in-out"
+            />
+          </div>
+
+          {/* Search Button */}
+          <button
+            onClick={() => {
+              if (county.trim() !== '') {
+                router.push(`/results?county=${encodeURIComponent(county.trim())}`);
+              }
+            }}
+            className="mt-6 bg-[#BF1414] text-white text-sm py-1.5 px-4 rounded-md hover:bg-[#a81212] transition-all"
+          >
+            Search
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
