@@ -3,6 +3,7 @@
 
 # Ignore node_modules folder (if using Node.js)
 node_modules/
+.next
 
 # Ignore Python cache files
 __pycache__/
@@ -10,6 +11,7 @@ __pycache__/
 
 # Ignore environment files
 .env
+venv
 
 # Ignore build and dependency directories
 dist/
