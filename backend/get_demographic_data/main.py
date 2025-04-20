@@ -1,14 +1,17 @@
-# Install dependencies first: pip install fastapi uvicorn requests pandas
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from google import genai
 import requests
 import pandas as pd
 from io import StringIO
 import logging
+from dotenv import load_dotenv
+import os
+
+load_dotenv() 
 
 app = FastAPI()
-CENSUS_API_KEY="d2bdf4d9301806a3643464888f2e76692f7067db"
+client = genai.Client(api_key=f"{os.getenv("GEMINI_API_KEY")}")
 
 import re
 
@@ -78,7 +81,7 @@ async def get_census_from_location(state: str, county: str, tract: str):
         census_api_url = (
             f"https://api.census.gov/data/2023/acs/acs5?get={variables}"
             f"&for=tract:{tract}&in=state:{state}&in=county:{county}"
-            f"&key={CENSUS_API_KEY}"
+            f"&key={os.getenv("CENSUS_API_KEY")}"
         )
 
         # Make API request with timeout
@@ -99,7 +102,37 @@ async def get_census_from_location(state: str, county: str, tract: str):
         # Process data
         try:
             df_demo = pd.DataFrame(demographic_data[1:], columns=demographic_data[0])
-            return map_and_snake_case_demographics(df_demo.to_dict(orient='records'), code_to_name)
+            demographics = map_and_snake_case_demographics(df_demo.to_dict(orient='records'), code_to_name)
+            prompt = f"""
+    Given these demographics: {demographics}
+    THESE DEMOGRAPHICS ARE IMPORTANT! Make sure each one is served well, order the list from the most important for that specific community to the least important
+    DO NOT answer in a long paragraph; SHORT answers only.
+    GIVE an explanation of the service. Be sure it is in the language of the type of person it is trying to help.
+    MAKE sure each service is easily accessible.
+
+    Suggest relevant online services with: 
+    - Emergency support after wildfires
+    - Counseling after tough losses
+    - Ways to get back up and running
+    - Shelters to stay in to recoup and get better
+    - Food banks 
+    - Monetary needs 
+    - Building community after a traumatic event.
+    - 
+    Output as JSON with 'services' array containing objects with those fields.
+    
+    """
+            
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
+            )
+
+            demographics.services = response.text
+
+            return demographics
+    
+
         except Exception as e:
             raise HTTPException(
                 status_code=500,
@@ -119,7 +152,6 @@ async def get_census_from_location(state: str, county: str, tract: str):
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
         ) from e
-    
 
 
 @app.get("/fires", summary="Get fire data with demographic information")
@@ -187,7 +219,7 @@ async def get_fires():
 
                 # Get demographic data
                 variables = "NAME,B19013_001E,B17001_002E,B02001_002E,B02001_003E,B03002_012E,B01001_001E,B01001_020E,B18101_004E,B25034_010E,B25002_003E,B16004_006E"
-                census_api_url = f"https://api.census.gov/data/2023/acs/acs5?get={variables}&for=tract:{tract}&in=state:{state}&in=county:{county}&key={CENSUS_API_KEY}"
+                census_api_url = f"https://api.census.gov/data/2023/acs/acs5?get={variables}&for=tract:{tract}&in=state:{state}&in=county:{county}&key={os.getenv("CENSUS_API_KEY")}"
                 
                 headers = {"User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
                 demo_response = requests.get(census_api_url, headers=headers)
