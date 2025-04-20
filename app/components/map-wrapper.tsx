@@ -9,7 +9,7 @@ const CaliMap = dynamic(() => import("./map"), {
 });
 
 export default function MapWrapper() {
-    <main className="p-7">
+    return <div className="">
         <CaliMap />
-    </main>
+    </div>
 }

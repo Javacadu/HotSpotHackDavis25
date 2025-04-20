@@ -22,7 +22,7 @@ export default function Features(props: CensusTractData) {
     const hasData = Object.values(props).some(v => v !== undefined && v !== null && v !== "");
 
     return (
-        <div className="absolute top-0 right-0 p-6 bg-white rounded-lg shadow-lg font-sans text-xs min-w-[180px] max-w-xs border border-gray-200 z-50 m-2">
+        <div className="absolute top-0 left-200 p-6 bg-white rounded-lg shadow-lg font-sans text-xs min-w-[180px] max-w-xs border border-gray-200 z-50 m-2">
             <div className="mb-1 text-sm font-semibold tracking-wide text-black">
                 {hasData ? "Feature Details" : "No Feature Selected"}
             </div>

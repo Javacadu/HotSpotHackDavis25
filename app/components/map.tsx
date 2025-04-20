@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import Features from './feature-attributes-box';
+import ServicesDropdown from './services-dropdown';
 import 'mapbox-gl/dist/mapbox-gl.css';
 const baseLineLayer = "1"
 const fillLayer = "2"
@@ -42,12 +43,19 @@ interface CensusTractData {
     census_tract_code?: string;
 }
 
+interface ServiceType {
+    name: string;
+    explanation: string;
+    accessibility: string;
+    link: string;
+}
 
 export default function MapboxMap() {
     const mapContainer = useRef<HTMLDivElement | null>(null);
     const [featureData, setFeatureData] = useState<CensusTractData | null>(null)
     const [fireTracts, setFireTracts] = useState<string[] | null>([])
     const map = useRef<mapboxgl.Map | null>(null); // Ref to store the map
+    const [services, setServices] = useState<ServiceType[]>([]);
 
     useEffect(() => {
 
@@ -63,8 +71,7 @@ export default function MapboxMap() {
                 .then((response) => response.json())
                 .then((data) => {
                     const currentMap = map.current
-                    const fires = data.fires
-                    fires.forEach((element: { latitude: number; longitude: number }) => {
+                    data.fires.forEach((element: { latitude: number; longitude: number }) => {
                         if (currentMap) {
                             new mapboxgl.Marker().setLngLat([element.longitude, element.latitude]).addTo(currentMap)
                         }
@@ -145,7 +152,7 @@ export default function MapboxMap() {
                 }
             });
 
-            newMap.on('click', fillLayer, (e: mapboxgl.MapLayerMouseEvent) => {
+            newMap.on('click', fillLayer, async (e: mapboxgl.MapLayerMouseEvent) => {
                 if (e.features && e.features.length > 0) {
                     const props = e.features[0].properties as FeaturesProps
                     const geoid = props.GEOID
@@ -163,7 +170,6 @@ export default function MapboxMap() {
                             .then(response => response.json())
                             .then((data) => {
                                 const demographics = data
-                                console.log(demographics)
                                 demographics.forEach((element: unknown) => {
                                     const tract = element as CensusTractData;
                                     setFeatureData(tract)
@@ -243,10 +249,35 @@ export default function MapboxMap() {
         };
     }, []);
 
+    useEffect(() => {
+        function getServices(demographic: CensusTractData | null) {
+            fetch("http://localhost:8000/get-services/", {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(demographic),
+            }).then(response => response.json())
+                .then(result => {
+                    if (result) {
+                        console.log(result)
+                        services.forEach((element: ServiceType) => {
+                            setServices(prev => [...(prev || []), element]);
+                        })
+
+                    }
+
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        getServices(featureData)
+    }, [featureData])
+
     return (
-        <div className="relative w-50% h-[900px]" >
+        <div className="relative w-100% h-[900px] top-0" >
             <p>These are the fires: {fireTracts}</p>
-            <div ref={mapContainer} style={{ width: "100%", height: "100%" }}>
+            <div ref={mapContainer} style={{ width: "100%", height: "300px" }}>
 
             </div>
             {featureData ? <Features {...featureData} /> : ""}
@@ -254,4 +285,6 @@ export default function MapboxMap() {
         </div>
 
     );
+
+
 }
