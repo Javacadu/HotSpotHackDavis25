@@ -4,5 +4,6 @@
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/page": "app/page.js",
   "/resources/page": "app/resources/page.js",
+  "/results/page": "app/results/page.js",
   "/services/page": "app/services/page.js"
 }
