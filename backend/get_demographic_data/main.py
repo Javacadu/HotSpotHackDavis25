@@ -1,17 +1,61 @@
+# Install dependencies first: pip install fastapi uvicorn requests pandas
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from google import genai
 import requests
 import pandas as pd
 from io import StringIO
 import logging
 from dotenv import load_dotenv
-import os
 
-load_dotenv() 
-
+load_dotenv()
 app = FastAPI()
-client = genai.Client(api_key=f"{os.getenv("GEMINI_API_KEY")}")
+
+from typing import Optional, Union
+from pydantic import BaseModel
+
+class Demographics(BaseModel):
+    geographic_area_name: Optional[str] = None
+    median_household_income_2019_usd: Optional[Union[float, str]] = None
+    population_below_poverty_level: Optional[Union[float, str]] = None
+    white_alone_population: Optional[Union[float, str]] = None
+    black_or_african_american_alone_population: Optional[Union[float, str]] = None
+    hispanic_or_latino_population_any_race: Optional[Union[float, str]] = None
+    total_population: Optional[Union[float, str]] = None
+    males_age_6566: Optional[Union[float, str]] = None
+    people_with_disability_1864: Optional[Union[float, str]] = None
+    housing_units_built_2010_or_later: Optional[Union[float, str]] = None
+    vacant_housing_units: Optional[Union[float, str]] = None
+    people_age_5_who_speak_english_less_than_very_well: Optional[Union[float, str]] = None
+    state_fips_code: Optional[str] = None
+    county_fips_code: Optional[str] = None
+    census_tract_code: Optional[str] = None
+
+
+import os
+import google.generativeai as genai
+
+# Always use getenv() safely
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  # Ensure this is set in your environment
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY environment variable not set")
+
+genai.configure(api_key=GEMINI_API_KEY)
+
+# Initialize model PROPERLY for Gemini 2.0 Flash
+model = genai.GenerativeModel(
+    model_name="gemini-2.0-flash-001",  # Official model ID as of 2025
+    generation_config={
+        "temperature": 0.5,
+        "max_output_tokens": 2048,
+    },
+    safety_settings={
+        "HATE": "BLOCK_NONE",
+        "HARASSMENT": "BLOCK_NONE",
+    }
+)
+
+
 
 import re
 
@@ -66,6 +110,110 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.post("/get-services/")
+async def get_services(demographics: Demographics):
+    print(demographics)
+    prompt = f"""
+Given these demographics: {demographics.model_dump()}
+THESE DEMOGRAPHICS ARE IMPORTANT! Make sure each one is served well, order the list from the most important for that specific community to the least important.
+DO NOT answer in a long paragraph; SHORT answers only.
+GIVE an explanation of the service. Be sure it is in the language of the type of person it is trying to help.
+MAKE sure each service is easily accessible.
+
+Suggest relevant online services with: 
+- Emergency support after wildfires
+- Counseling after tough losses
+- Ways to get back up and running
+- Shelters to stay in to recoup and get better
+- Food banks 
+- Monetary needs 
+- Building community after a traumatic event.
+
+You are an API that only responds in JSON format. 
+Provide your answer as a valid JSON object, with no extra commentary, explanation, or markdown. 
+Here is the required structure:
+- name
+- explanation
+- accessibility
+- link
+
+Here are some examples:
+
+Example 1:
+Demographics: {{
+    "geographic_area_name": "Rural California",
+    "median_household_income_2019_usd": 32000,
+    "population_below_poverty_level": 35,
+    "total_population": 1200,
+    "people_with_disability_1864": 120
+}}
+
+Output:
+{{
+  "services": [
+    {{
+      "name": "CalFire Emergency Alerts",
+      "explanation": "Stay safe with real-time wildfire alerts and evacuation info.",
+      "accessibility": "Available via SMS and phone for those without internet.",
+      "link": "https://www.fire.ca.gov/programs/communications/"
+    }},
+    {{
+      "name": "Rural Recovery Counseling",
+      "explanation": "Talk to someone who understands rural life and tough losses.",
+      "accessibility": "Free hotline and local in-person sessions.",
+      "link": "https://www.ruralcounseling.org/"
+    }},
+    {{
+      "name": "Red Cross Temporary Shelters",
+      "explanation": "Find a safe place to stay and recover after disaster.",
+      "accessibility": "No ID needed, open 24/7.",
+      "link": "https://www.redcross.org/get-help.html"
+    }}
+  ]
+}}
+
+Example 2:
+Demographics: {{
+    "geographic_area_name": "Urban Latino Community",
+    "median_household_income_2019_usd": 45000,
+    "hispanic_or_latino_population_any_race": 8000,
+    "people_age_5_who_speak_english_less_than_very_well": 1200
+}}
+
+Output:
+{{
+  "services": [
+    {{
+      "name": "Alerta Incendios en Español",
+      "explanation": "Recibe alertas de incendios y evacuaciones en tu idioma.",
+      "accessibility": "Mensajes de texto y llamadas automáticas disponibles.",
+      "link": "https://www.alerta-incendios.org/"
+    }},
+    {{
+      "name": "Consejería Comunitaria",
+      "explanation": "Habla con un consejero que entiende tu cultura y situación.",
+      "accessibility": "Sesiones gratuitas en español, virtuales o presenciales.",
+      "link": "https://www.consejeriaciudad.org/"
+    }}
+  ]
+}}
+Now, for the following input, respond ONLY with a JSON object in the above format.
+Output:
+"""
+
+                
+    try:
+        response = model.generate_content(
+            contents=[{"role": "user", "parts": [{"text": prompt}]}],
+            request_options={"timeout": 10}  # Prevent hanging
+        )
+        return response.text
+    except genai.types.StopCandidateException as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"API Error: {str(e)}"
+
+
 @app.get("/census-data-from-location")
 async def get_census_from_location(state: str, county: str, tract: str):
     try:
@@ -102,37 +250,7 @@ async def get_census_from_location(state: str, county: str, tract: str):
         # Process data
         try:
             df_demo = pd.DataFrame(demographic_data[1:], columns=demographic_data[0])
-            demographics = map_and_snake_case_demographics(df_demo.to_dict(orient='records'), code_to_name)
-            prompt = f"""
-    Given these demographics: {demographics}
-    THESE DEMOGRAPHICS ARE IMPORTANT! Make sure each one is served well, order the list from the most important for that specific community to the least important
-    DO NOT answer in a long paragraph; SHORT answers only.
-    GIVE an explanation of the service. Be sure it is in the language of the type of person it is trying to help.
-    MAKE sure each service is easily accessible.
-
-    Suggest relevant online services with: 
-    - Emergency support after wildfires
-    - Counseling after tough losses
-    - Ways to get back up and running
-    - Shelters to stay in to recoup and get better
-    - Food banks 
-    - Monetary needs 
-    - Building community after a traumatic event.
-    - 
-    Output as JSON with 'services' array containing objects with those fields.
-    
-    """
-            
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
-
-            demographics.services = response.text
-
-            return demographics
-    
-
+            return map_and_snake_case_demographics(df_demo.to_dict(orient='records'), code_to_name)
         except Exception as e:
             raise HTTPException(
                 status_code=500,
@@ -152,6 +270,7 @@ async def get_census_from_location(state: str, county: str, tract: str):
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
         ) from e
+    
 
 
 @app.get("/fires", summary="Get fire data with demographic information")
@@ -231,8 +350,14 @@ async def get_fires():
                 # Process demographic data
                 demographic_data = demo_response.json()
                 df_demo = pd.DataFrame(demographic_data[1:], columns=demographic_data[0])
-                mapped_demographics = map_and_snake_case_demographics(df_demo.to_dict(orient='records'), code_to_name)
-                demographics.extend(mapped_demographics)
+                demo_list = map_and_snake_case_demographics(df_demo.to_dict(orient='records'), code_to_name)
+                demographics.extend(demo_list)
+                return {
+                    "fires": high_confidence_fires.to_dict(orient='records'),
+                    "demographics": demographics,
+                    "errors": errors
+                }
+    
 
             except Exception as e:
                 errors.append(f"Coordinate {idx+1}: {str(e)}")
